@@ -1,0 +1,101 @@
+---
+title: "HarvardX Data Science Capstone Project"
+author: "Vincent"
+date: "15 avril 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+# Loading and cleaning data
+
+## Downloading and loading data
+
+The base datafile is downloaded from Kaggle if not already available.
+
+```{r}
+# Download base dataset
+DataURL <- "https://www.kaggle.com/jsphyg/weather-dataset-rattle-package/downloads/weather-dataset-rattle-package.zip/2"
+DataFile <- "weather-dataset-rattle-package.zip"
+if (!file.exists(DataFile)) {
+  download.file(DataURL, destfile = DataFile)
+  unzip(DataFile)
+}
+```
+
+```{r}
+rain <- read.csv("weatherAUS.csv")
+str(rain)
+```
+
+The outcome variable is a factor variables with two levels, "No" coded as 1 and "Yes" coded as 2. We will recode the existing levels with a more common 0 for "No" and 1 for "Yes". This will be helpful if we later want to estimate rain probabilities, wich must obviously be between 0 and 1.
+
+```{r}
+rain$RainTomorrow2 <- as.numeric(rain$RainTomorrow == "Yes")
+```
+
+
+
+# Exploratory Data Analysys
+
+```{r}
+# Prevalence of Rain Tomorow
+table(rain$RainTomorrow)
+sum(rain$RainTomorrow == "No") / nrow(rain)
+```
+We have to take prevalence into account because in 77.5% of cases, the outcome is NO (no rain). So a dummy model always predicting no would be 77.5% accurate. we have also to consider sensitivity and specificity (ability to predict ... when ...)
+
+
+
+
+# Models
+
+## Training and testing set
+```{r, warning = FALSE, message=FALSE}
+library(caret)
+set.seed(1971)
+test_index <- createDataPartition(rain$RainTomorrow, times = 1, p = 0.2, list = FALSE)
+test_set <- rain[test_index, ]
+train_set <- rain[-test_index, ]
+```
+
+## Baseline model
+
+A simple and naïve model would be to always predict the most frequent outcome. It allows us to have a baseline to evaluate more elaborate models.
+
+```{r}
+pred_naive <- rep("No", nrow(test_set))
+```
+
+### Overall Accuracy
+```{r}
+mean(pred_naive == test_set$RainTomorrow)
+```
+As expected, the overall accuracy is close to the prevalence of the most common outcome.
+
+### Confusion Matrix
+
+```{r}
+pred_naive <- as.factor(pred_naive)
+levels(pred_naive) <- levels(test_set$RainTomorrow)
+table(predicted = pred_naive, actual = test_set$RainTomorrow)
+```
+
+```{r}
+confusionMatrix(data = pred_naive, reference = test_set$RainTomorrow)
+```
+
+Of course our naive approach leads to a perfect sensitivity but specificity is 0. Balanced accuracy is only 0.5
+
+## Logisitc Regression
+
+
+
+# Results
+
+# Conclusion
+
