@@ -1,7 +1,7 @@
 ---
 title: "HarvardX Data Science Capstone Project"
 author: "Vincent"
-date: "15 avril 2019"
+date: "May 2019"
 output: html_document
 ---
 
@@ -42,31 +42,47 @@ description <- c('The date of observation', 'The common name of the location of 
 knitr::kable(data.frame(column = names(rain), description))
 ```
 
-The outcome variable, RainTomorrow,  is a factor variables with two levels. This is a binary classification problem
+The outcome variable, RainTomorrow, is a factor variable with two levels. This is a binary classification problem
 
-## Cleaning data
+## Understanding and cleaning data
 
 ### Date
 
-Date is stored as a factor variable. It can be converted to an actual date, however extracting the month or the week should give a better predictor to predict 
+Date is stored as a factor variable and can be converted to an actual date.
 
 ```{r}
-
+rain$Date <- as.Date(rain$Date)
+summary(rain$Date)
 ```
 
-### RISK_MM
+However extracting the month or the week could give a better predictor
+
+### RISK_MM and RainTomorrow
 
 This predictor is directly linked to the outcome : "The amount of next day rain in mm. Used to create response variable RainTomorrow.". And in fact there is a perfect corelation between those variables. RainTomorrow is True if RISK_MM > 1.
 
 ```{r}
 table(RainTomorrow = rain$RainTomorrow, RISK_MM_above_1 = rain$RISK_MM > 1)
 ```
-This predictor must be removed because otherwise it would leak the outcome variable in the dataset and would we not be doing real prediction.
+This predictor must be removed because otherwise it would leak the outcome variable in the dataset.
 
 ```{r}
 rain$RISK_MM <- NULL
 ```
 
+
+### Rainfall and RainToday
+
+RainToday is also a binary representation of the numeric variable Rainfall. Raintoday is true when rainfall > 1mm.
+
+```{r}
+table(RainToday = rain$RainToday, rainfall_above_1 = rain$Rainfall > 1)
+```
+Since those variables are prefectly correlated, we will keep only one of them. Rainfall contains more variability so may have a better predictive value.
+
+```{r}
+rain$RainToday <- NULL
+```
 
 ## Missing values
 
@@ -74,15 +90,126 @@ rain$RISK_MM <- NULL
 sapply(rain, function(x) sum(is.na(x)))
 ```
 
+Some variables contain a high number of missing variables. 
+
+```{r}
+sapply(rain, function(x) round(sum(is.na(x)) / length(x) * 100))
+```
+
+for some of them, the percentage of missing values is so high that trying to impute those values is useless, therefore we keep only those with up to 10% of missing values and eliminate the others: Evaporation, Sunshine, Cloud9am, Cloud3pm
+
+```{r}
+rain$Evaporation <- NULL
+rain$Sunshine <- NULL
+rain$Cloud9am <- NULL
+rain$Cloud3pm <- NULL
+```
+
+For the remaining numerical variables, we will impute the mean of the rest of the observations
+
+```{r}
+rain[is.na(rain$WindGustSpeed),]$WindGustSpeed <- round(mean(rain$WindGustSpeed, na.rm = TRUE))
+rain[is.na(rain$WindSpeed9am),]$WindSpeed9am <- round(mean(rain$WindSpeed9am, na.rm = TRUE))
+rain[is.na(rain$WindSpeed3pm),]$WindSpeed3pm <- round(mean(rain$WindSpeed3pm, na.rm = TRUE))
+rain[is.na(rain$Humidity9am),]$Humidity9am <- round(mean(rain$Humidity9am, na.rm = TRUE))
+rain[is.na(rain$Humidity3pm),]$Humidity3pm <- round(mean(rain$Humidity3pm, na.rm = TRUE))
+rain[is.na(rain$Rainfall),]$Rainfall <- round(mean(rain$Rainfall, na.rm = TRUE), digits = 1)
+rain[is.na(rain$Pressure9am),]$Pressure9am <- round(mean(rain$Pressure9am, na.rm = TRUE))
+rain[is.na(rain$Pressure3pm),]$Pressure3pm <- round(mean(rain$Pressure3pm, na.rm = TRUE))
+rain[is.na(rain$MinTemp),]$MinTemp <- round(mean(rain$MinTemp, na.rm = TRUE), digits = 1)
+rain[is.na(rain$MaxTemp),]$MaxTemp <- round(mean(rain$MaxTemp, na.rm = TRUE), digits = 1)
+rain[is.na(rain$Temp9am),]$Temp9am <- round(mean(rain$Temp9am, na.rm = TRUE), digits = 1)
+rain[is.na(rain$Temp3pm),]$Temp3pm <- round(mean(rain$Temp3pm, na.rm = TRUE), digits = 1)
+```
+
+The 3 remaining variables containing missing values are categorical and all related to Wind. Since WindGustDir, WindSpeed9am and WindSpeed3p seem to often have the same values, we try imputation by assigning non missing values from the other two variables
+
+```{r}
+rain[is.na(rain$WindGustDir),]$WindGustDir <- rain[is.na(rain$WindGustDir),]$WindDir9am
+rain[is.na(rain$WindGustDir),]$WindGustDir <- rain[is.na(rain$WindGustDir),]$WindDir3pm
+rain[is.na(rain$WindDir9am),]$WindDir9am <- rain[is.na(rain$WindDir9am),]$WindDir3pm
+rain[is.na(rain$WindDir9am),]$WindDir9am <- rain[is.na(rain$WindDir9am),]$WindGustDir
+rain[is.na(rain$WindDir3pm),]$WindDir3pm <- rain[is.na(rain$WindDir3pm),]$WindDir9am
+rain[is.na(rain$WindDir3pm),]$WindDir3pm <- rain[is.na(rain$WindDir3pm),]$WindGustDir
+```
+
+For observations where all three Wind values where missing, we impute the mode, the most common value.
+
+```{r}
+rain[is.na(rain$WindDir9am),]$WindDir9am <- names(which.max(table(rain$WindDir9am)))
+rain[is.na(rain$WindDir3pm),]$WindDir3pm <- names(which.max(table(rain$WindDir3pm)))
+rain[is.na(rain$WindGustDir),]$WindGustDir <- names(which.max(table(rain$WindGustDir)))
+```
+
+At this stage, we no longer have missing values in the dataset, and we still have 142193 observations. If we had simply ignored all observations with missing values, we would only have 56420 left. This simple imputation allows us to consider almost three times more observations and thus keeping more signal in the dataset, hopefully leading to more insight.
+More elaborate methods for imputation exist and could also be tried to compare results.
+
 
 # Exploratory Data Analysis
 
+## Prevalence
+
 Let's check the prevalence of the outcome variable
 ```{r}
-table(rain$RainTomorrow)
-sum(rain$RainTomorrow == "No") / nrow(rain)
+prop.table(table(rain$RainTomorrow))
 ```
+
 We have to take prevalence into account because in 77.5% of cases, the outcome is NO (no rain). So a dummy model always predicting no would be close to 77.5% accurate. We have also to consider sensitivity and specificity. Sensitivity is the ability to predict a positive outcome when the actual outcome is positive. Specificity is the ability not to predict a positive outcome when the actual outcome is not positive.
+
+## Corelation of explanatory variables
+
+The explanotory variables contains different measures of the same quantity. For example we have 4 measures of temperature: min, max, at 9am and at 6pm. As can be expected, the is a relatively strong correlation between these measures.
+
+```{r, message = FALSE}
+library(dplyr)
+pairs(select(rain, contains("Temp")))
+```
+
+```{r}
+pairs(select(rain, contains("Pressure")))
+```
+
+```{r}
+pairs(select(rain, contains("Speed")))
+```
+
+```{r}
+pairs(select(rain, contains("Humidity")))
+```
+
+```{r}
+pairs(select(rain, c('WindSpeed9am', 'Pressure9am', 'Temp9am')))
+```
+```{r, message = FALSE}
+library(corrplot)
+corrplot(cor(select(rain, c('WindSpeed9am', 'Pressure9am', 'Temp9am'))), method = 'number')
+```
+
+
+```{r}
+numeric <- sapply(rain, is.numeric)
+correlations <- cor(rain[,numeric])
+#diag(correlations) <- 0
+
+high <- apply(abs(correlations) >= 0.8, 2, any)
+
+corrplot(correlations[high, high], method = "number")
+```
+
+
+## Humidity
+
+```{r, message=FALSE}
+library(ggplot2)
+rain %>% 
+  ggplot(aes(x=RainTomorrow, y=Humidity9am, colour = RainTomorrow, fill= RainTomorrow)) +      geom_violin()
+```
+
+```{r, message=FALSE}
+rain %>% 
+  ggplot(aes(x=RainTomorrow, y=Humidity3pm, colour = RainTomorrow, fill= RainTomorrow)) + geom_violin()
+```
+
 
 
 # Models
@@ -91,6 +218,7 @@ We have to take prevalence into account because in 77.5% of cases, the outcome i
 ```{r, warning = FALSE, message=FALSE}
 library(caret)
 set.seed(1971)
+rain <- na.omit(rain) # to delete after imputation
 test_index <- createDataPartition(rain$RainTomorrow, times = 1, p = 0.2, list = FALSE)
 test_set <- rain[test_index, ]
 train_set <- rain[-test_index, ]
@@ -108,7 +236,7 @@ pred_naive <- rep("No", nrow(test_set))
 ```{r}
 mean(pred_naive == test_set$RainTomorrow)
 ```
-As expected, the overall accuracy is close to the prevalence of the most common outcome. However, if we compute the accuracy by outcome, the weakness of our simple approach is revealed.
+As expected, the overall accuracy is close to the prevalence of the most common outcome. However, if we compute the accuracy by outcome, the weakness of our simple approach is revealed. Specificity is perfect but there is no sensitivity.
 
 ```{r, message = FALSE}
 library(dplyr)
@@ -142,6 +270,45 @@ F_meas(data = pred_naive, reference = test_set$RainTomorrow)
 
 ## Logistic Regression
 
+TODO : Method to select predictors
+Cross validation to select predictors
+
+```{r}
+mod_glm <- glm(RainTomorrow ~ WindGustSpeed + Humidity3pm + Pressure3pm, data = train_set, family = binomial)
+summary(mod_glm)
+```
+```{r}
+pred_glm <- predict(mod_glm, type = 'response', newdata = test_set)
+pred_glm <- as.factor(ifelse (pred_glm < 0.5, "No", "Yes"))
+confusionMatrix(data = pred_glm, reference = test_set$RainTomorrow)
+```
+
+
+## Tree
+
+## Random Forest
+
+Correlated variables are less of a problem for random Forests, so we used all predictors instead of selected ones.
+
+```{r, message = FALSE}
+library(randomForest)
+mod_rf <- randomForest(RainTomorrow ~ ., data = train_set, family = binomial)
+```
+
+```{r}
+#pred_rf <- predict(mod_rf, type = 'response', newdata = test_set)
+#pred_rf <- as.factor(ifelse (pred_rf < 0.5, "No", "Yes"))
+#confusionMatrix(data = pred_rf, reference = test_set$RainTomorrow)
+```
+
+
+
+## Using the caret package
+
+The caret package provides consistency in order to train models from different packages. Available methods are described here : https://topepo.github.io/caret/train-models-by-tag.html
+
+
+
 ```{r}
 #train_glm <- train(RainTomorrow ~ Location, method = "glm", data = train_set)
 ```
@@ -152,13 +319,6 @@ F_meas(data = pred_naive, reference = test_set$RainTomorrow)
 ```
 
 
-## Tree
-
-## Random Forest
-
-## Using the caret package
-
-The caret package provides consistency in order to train models from different packages. Available methods are described here : https://topepo.github.io/caret/train-models-by-tag.html
 
 ## Ensemble model
 
@@ -166,5 +326,13 @@ Using several different models and combining them, with a majority vote in our c
 
 # Results
 
+# Improvements
+
+better imputation method ?
+
 # Conclusion
+
+```{r}
+
+```
 
