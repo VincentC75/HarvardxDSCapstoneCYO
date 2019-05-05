@@ -57,6 +57,13 @@ summary(rain$Date)
 
 However extracting the month or the week could give a better predictor
 
+```{r, message = FALSE}
+library(lubridate)
+rain$Month <- month(ymd(rain$Date))
+rain$Week <- week(ymd(rain$Date))
+```
+
+
 ### RISK_MM and RainTomorrow
 
 This predictor is directly linked to the outcome : "The amount of next day rain in mm. Used to create response variable RainTomorrow.". And in fact there is a perfect corelation between those variables. RainTomorrow is True if RISK_MM > 1.
@@ -105,45 +112,37 @@ rain$Cloud9am <- NULL
 rain$Cloud3pm <- NULL
 ```
 
-For the remaining numerical variables, we will impute the mean of the rest of the observations
+For the remaining data, we could replace NA with the mean for numerical variable or with the mode for factor variables, but since we are dealing with weather data and we have a date, it's better to assign the last non missing values for the same location.
 
-```{r}
-rain[is.na(rain$WindGustSpeed),]$WindGustSpeed <- round(mean(rain$WindGustSpeed, na.rm = TRUE))
-rain[is.na(rain$WindSpeed9am),]$WindSpeed9am <- round(mean(rain$WindSpeed9am, na.rm = TRUE))
-rain[is.na(rain$WindSpeed3pm),]$WindSpeed3pm <- round(mean(rain$WindSpeed3pm, na.rm = TRUE))
-rain[is.na(rain$Humidity9am),]$Humidity9am <- round(mean(rain$Humidity9am, na.rm = TRUE))
-rain[is.na(rain$Humidity3pm),]$Humidity3pm <- round(mean(rain$Humidity3pm, na.rm = TRUE))
-rain[is.na(rain$Rainfall),]$Rainfall <- round(mean(rain$Rainfall, na.rm = TRUE), digits = 1)
-rain[is.na(rain$Pressure9am),]$Pressure9am <- round(mean(rain$Pressure9am, na.rm = TRUE))
-rain[is.na(rain$Pressure3pm),]$Pressure3pm <- round(mean(rain$Pressure3pm, na.rm = TRUE))
-rain[is.na(rain$MinTemp),]$MinTemp <- round(mean(rain$MinTemp, na.rm = TRUE), digits = 1)
-rain[is.na(rain$MaxTemp),]$MaxTemp <- round(mean(rain$MaxTemp, na.rm = TRUE), digits = 1)
-rain[is.na(rain$Temp9am),]$Temp9am <- round(mean(rain$Temp9am, na.rm = TRUE), digits = 1)
-rain[is.na(rain$Temp3pm),]$Temp3pm <- round(mean(rain$Temp3pm, na.rm = TRUE), digits = 1)
+```{r, message = FALSE}
+library(dplyr)
+library(tidyr)
+rain <- rain %>%
+  arrange(Date) %>%
+  group_by(Location) %>%
+  fill(WindGustSpeed, WindSpeed9am, WindSpeed3pm, Humidity9am, Humidity3pm, Rainfall, Pressure9am, Pressure3pm, MinTemp, MaxTemp, Temp9am, Temp3pm, WindGustDir, WindDir9am, WindDir3pm) %>%
+  fill(WindGustSpeed, WindSpeed9am, WindSpeed3pm, Humidity9am, Humidity3pm, Rainfall, Pressure9am, Pressure3pm, MinTemp, MaxTemp, Temp9am, Temp3pm, WindGustDir, WindDir9am, WindDir3pm, .direction = "up")
+rain <- rain %>% ungroup()
+sapply(rain, function(x) sum(is.na(x)))
 ```
 
-The 3 remaining variables containing missing values are categorical and all related to Wind. Since WindGustDir, WindSpeed9am and WindSpeed3p seem to often have the same values, we try imputation by assigning non missing values from the other two variables
+After this imputation, some values are still missing because certain variables where not collected in some locations, and when all values are missing, we cannot impute the previous value.
+We can deal with those special cases.
+For WindGustDir we impute the value of WindDir9am for the same observation
+For WindGustSpeed, we impute the maximum of WindSpeed9am and WindSpeed3pm for the same observation
+For Pressure9am and Pressure3pm we have no value in the same observation thta would make sense, so we impute the mean of these variables in the entire dataset.
+
+
 
 ```{r}
-rain[is.na(rain$WindGustDir),]$WindGustDir <- rain[is.na(rain$WindGustDir),]$WindDir9am
-rain[is.na(rain$WindGustDir),]$WindGustDir <- rain[is.na(rain$WindGustDir),]$WindDir3pm
-rain[is.na(rain$WindDir9am),]$WindDir9am <- rain[is.na(rain$WindDir9am),]$WindDir3pm
-rain[is.na(rain$WindDir9am),]$WindDir9am <- rain[is.na(rain$WindDir9am),]$WindGustDir
-rain[is.na(rain$WindDir3pm),]$WindDir3pm <- rain[is.na(rain$WindDir3pm),]$WindDir9am
-rain[is.na(rain$WindDir3pm),]$WindDir3pm <- rain[is.na(rain$WindDir3pm),]$WindGustDir
+rain$WindGustDir[is.na(rain$WindGustDir)] <- rain$WindDir9am[is.na(rain$WindGustDir)] 
+rain$WindGustSpeed[is.na(rain$WindGustSpeed)] <- max(rain$WindSpeed9am[is.na(rain$WindGustSpeed)], rain$WindSpeed3pm[is.na(rain$WindGustSpeed)]) 
+rain$Pressure9am[is.na(rain$Pressure9am)] <- mean(rain$Pressure9am[!is.na(rain$Pressure9am)]) 
+rain$Pressure3pm[is.na(rain$Pressure3pm)] <- mean(rain$Pressure3pm[!is.na(rain$Pressure3pm)]) 
+sapply(rain, function(x) sum(is.na(x)))
 ```
 
-For observations where all three Wind values where missing, we impute the mode, the most common value.
-
-```{r}
-rain[is.na(rain$WindDir9am),]$WindDir9am <- names(which.max(table(rain$WindDir9am)))
-rain[is.na(rain$WindDir3pm),]$WindDir3pm <- names(which.max(table(rain$WindDir3pm)))
-rain[is.na(rain$WindGustDir),]$WindGustDir <- names(which.max(table(rain$WindGustDir)))
-```
-
-At this stage, we no longer have missing values in the dataset, and we still have 142193 observations. If we had simply ignored all observations with missing values, we would only have 56420 left. This simple imputation allows us to consider almost three times more observations and thus keeping more signal in the dataset, hopefully leading to more insight.
-More elaborate methods for imputation exist and could also be tried to compare results.
-
+At this stage, we no longer have missing values in the dataset, and we still have 142193 observations. If we had simply ignored all observations with missing values, we would only have 56420 left. This simple imputation allows us to consider almost three times more observations and thus keep more signal in the dataset, hopefully leading to more insight.
 
 # Exploratory Data Analysis
 
@@ -189,13 +188,13 @@ corrplot(cor(select(rain, c('WindSpeed9am', 'Pressure9am', 'Temp9am'))), method 
 ```{r}
 numeric <- sapply(rain, is.numeric)
 correlations <- cor(rain[,numeric])
-#diag(correlations) <- 0
-
-high <- apply(abs(correlations) >= 0.8, 2, any)
-
+diag(correlations) <- 0
+high <- apply(abs(correlations) >= 0.7, 2, any)
 corrplot(correlations[high, high], method = "number")
 ```
 
+Some predictors are highly correlated. For instance, the most obvious corelations are between Temp9am and MinTemp, Temp 3pm and MaxTemp. Pressure9am and Pressure3pm also seem to bring the same information whith a near perfect corelation of 0.96.
+Later, in models that are sensitive to corelated predictors, we could choose to keep only MinTemp and MaxTemp and only one measure of Pressure. We would keep most of the signal with 3 predictors instead of 6. 
 
 ## Humidity
 
@@ -210,6 +209,7 @@ rain %>%
   ggplot(aes(x=RainTomorrow, y=Humidity3pm, colour = RainTomorrow, fill= RainTomorrow)) + geom_violin()
 ```
 
+We notice that, even if in both cases we are measuring Humidity, there difference is greater in the Humidity3pm measure. It could be interesting to keep only Humidity3pm and eliminate Humidity9am with has a substantial corelation of `round(cor(rain$Humidity9am, rain$Humidity3pm), digits = 2`.
 
 
 # Models
@@ -218,7 +218,6 @@ rain %>%
 ```{r, warning = FALSE, message=FALSE}
 library(caret)
 set.seed(1971)
-rain <- na.omit(rain) # to delete after imputation
 test_index <- createDataPartition(rain$RainTomorrow, times = 1, p = 0.2, list = FALSE)
 test_set <- rain[test_index, ]
 train_set <- rain[-test_index, ]
@@ -270,21 +269,56 @@ F_meas(data = pred_naive, reference = test_set$RainTomorrow)
 
 ## Logistic Regression
 
-TODO : Method to select predictors
-Cross validation to select predictors
+### Feature selection
+
+TODO : Method to select predictors, based on explanatory analysis above
 
 ```{r}
-mod_glm <- glm(RainTomorrow ~ WindGustSpeed + Humidity3pm + Pressure3pm, data = train_set, family = binomial)
+mod_glm <- glm(RainTomorrow ~ WindGustSpeed + WindSpeed9am + Humidity3pm + Pressure3pm + MinTemp + MaxTemp + Month + Location, data = train_set, family = binomial)
 summary(mod_glm)
 ```
+
+We see that all of the selected predictors are highly significant.
+
 ```{r}
 pred_glm <- predict(mod_glm, type = 'response', newdata = test_set)
-pred_glm <- as.factor(ifelse (pred_glm < 0.5, "No", "Yes"))
-confusionMatrix(data = pred_glm, reference = test_set$RainTomorrow)
+pred_glm2 <- as.factor(ifelse (pred_glm < 0.5, "No", "Yes"))
+pred_glm3 <- as.factor(ifelse (pred_glm < 0.3, "No", "Yes"))
+confusionMatrix(data = pred_glm2, reference = test_set$RainTomorrow, positive = "Yes")
+```
+```{r}
+print(paste('Accuracy',round(mean(pred_glm2 == test_set$RainTomorrow), digits = 4)))
+```
+
+```{r, message=FALSE}
+library(ROCR)
+pr <- prediction(pred_glm, test_set$RainTomorrow)
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+```
+
+```{r, message=FALSE}
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
 ```
 
 
 ## Tree
+
+```{r}
+library(rpart)
+mod_tree <- rpart(RainTomorrow ~ ., data = train_set, method = 'class')
+plot(mod_tree)
+text(mod_tree)
+```
+
+```{r}
+pred_tree <- predict(mod_tree, newdata = test_set)
+#pred_tree2 <- as.factor(pred_tree)
+#confusionMatrix(data = pred_tree2, reference = test_set$RainTomorrow, positive = "Yes")
+```
+
 
 ## Random Forest
 
@@ -296,9 +330,9 @@ mod_rf <- randomForest(RainTomorrow ~ ., data = train_set, family = binomial)
 ```
 
 ```{r}
-#pred_rf <- predict(mod_rf, type = 'response', newdata = test_set)
-#pred_rf <- as.factor(ifelse (pred_rf < 0.5, "No", "Yes"))
-#confusionMatrix(data = pred_rf, reference = test_set$RainTomorrow)
+#importance(mod_rf)
+pred_rf <- predict(mod_rf, type = 'response', newdata = test_set)
+confusionMatrix(data = pred_rf, reference = test_set$RainTomorrow, positive = "Yes")
 ```
 
 
