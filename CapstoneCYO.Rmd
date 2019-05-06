@@ -2,7 +2,9 @@
 title: "HarvardX Data Science Capstone Project"
 author: "Vincent"
 date: "May 2019"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -32,7 +34,10 @@ rain <- read.csv("weatherAUS.csv")
 str(rain)
 ```
 
-Available columns :
+
+## Understanding and cleaning data
+
+### Available columns
 
 ```{r, include = FALSE}
 description <- c('The date of observation', 'The common name of the location of the weather station', 'The minimum temperature in degrees celsius', 'The maximum temperature in degrees celsius', 'The amount of rainfall recorded for the day in mm', 'The so-called Class A pan evaporation (mm) in the 24 hours to 9am', 'The number of hours of bright sunshine in the day', 'The direction of the strongest wind gust in the 24 hours to midnight', 'The speed (km/h) of the strongest wind gust in the 24 hours to midnight', 'Direction of the wind at 9am', 'Direction of the wind at 3pm', 'Wind speed (km/hr) averaged over 10 minutes prior to 9am', 'Wind speed (km/hr) averaged over 10 minutes prior to 3pm', 'Humidity (percent) at 9am', 'Humidity (percent) at 3pm', 'Atmospheric pressure (hpa) reduced to mean sea level at 9am', 'Atmospheric pressure (hpa) reduced to mean sea level at 3pm','Fraction of sky obscured by cloud at 9am. This is measured in "oktas", which are a unit of eigths. It records how many eigths of the sky are obscured by cloud. A 0 measure indicates completely clear sky whilst an 8 indicates that it is completely overcast.', 'Fraction of sky obscured by cloud (in "oktas": eighths) at 3pm. See Cloud9am for a description of the values', 'Temperature (degrees C) at 9am', 'Temperature (degrees C) at 3pm', 'Boolean: 1 if precipitation (mm) in the 24 hours to 9am exceeds 1mm, otherwise 0', 'The amount of next day rain in mm. Used to create response variable RainTomorrow. A kind of measure of the "risk".', 'The target variable. Did it rain tomorrow?')
@@ -43,8 +48,6 @@ knitr::kable(data.frame(column = names(rain), description))
 ```
 
 The outcome variable, RainTomorrow, is a factor variable with two levels. This is a binary classification problem
-
-## Understanding and cleaning data
 
 ### Date
 
@@ -159,29 +162,29 @@ We have to take prevalence into account because in 77.5% of cases, the outcome i
 
 The explanotory variables contains different measures of the same quantity. For example we have 4 measures of temperature: min, max, at 9am and at 6pm. As can be expected, the is a relatively strong correlation between these measures.
 
-```{r, message = FALSE}
+```{r pairs_temp, message = FALSE}
 library(dplyr)
-pairs(select(rain, contains("Temp")))
+#pairs(select(rain, contains("Temp")))
 ```
 
 ```{r}
-pairs(select(rain, contains("Pressure")))
+#pairs(select(rain, contains("Pressure")))
 ```
 
 ```{r}
-pairs(select(rain, contains("Speed")))
+#pairs(select(rain, contains("Speed")))
 ```
 
 ```{r}
-pairs(select(rain, contains("Humidity")))
+#pairs(select(rain, contains("Humidity")))
 ```
 
 ```{r}
-pairs(select(rain, c('WindSpeed9am', 'Pressure9am', 'Temp9am')))
+#pairs(select(rain, c('WindSpeed9am', 'Pressure9am', 'Temp9am')))
 ```
 ```{r, message = FALSE}
 library(corrplot)
-corrplot(cor(select(rain, c('WindSpeed9am', 'Pressure9am', 'Temp9am'))), method = 'number')
+#corrplot(cor(select(rain, c('WindSpeed9am', 'Pressure9am', 'Temp9am'))), method = 'number')
 ```
 
 
@@ -190,7 +193,7 @@ numeric <- sapply(rain, is.numeric)
 correlations <- cor(rain[,numeric])
 diag(correlations) <- 0
 high <- apply(abs(correlations) >= 0.7, 2, any)
-corrplot(correlations[high, high], method = "number")
+#corrplot(correlations[high, high], method = "number")
 ```
 
 Some predictors are highly correlated. For instance, the most obvious corelations are between Temp9am and MinTemp, Temp 3pm and MaxTemp. Pressure9am and Pressure3pm also seem to bring the same information whith a near perfect corelation of 0.96.
@@ -200,13 +203,13 @@ Later, in models that are sensitive to corelated predictors, we could choose to 
 
 ```{r, message=FALSE}
 library(ggplot2)
-rain %>% 
-  ggplot(aes(x=RainTomorrow, y=Humidity9am, colour = RainTomorrow, fill= RainTomorrow)) +      geom_violin()
+#rain %>% 
+#  ggplot(aes(x=RainTomorrow, y=Humidity9am, colour = RainTomorrow, fill= RainTomorrow)) + geom_violin()
 ```
 
 ```{r, message=FALSE}
-rain %>% 
-  ggplot(aes(x=RainTomorrow, y=Humidity3pm, colour = RainTomorrow, fill= RainTomorrow)) + geom_violin()
+#rain %>% 
+#  ggplot(aes(x=RainTomorrow, y=Humidity3pm, colour = RainTomorrow, fill= RainTomorrow)) + geom_violin()
 ```
 
 We notice that, even if in both cases we are measuring Humidity, there difference is greater in the Humidity3pm measure. It could be interesting to keep only Humidity3pm and eliminate Humidity9am with has a substantial corelation of `round(cor(rain$Humidity9am, rain$Humidity3pm), digits = 2`.
@@ -275,7 +278,7 @@ TODO : Method to select predictors, based on explanatory analysis above
 
 ```{r}
 mod_glm <- glm(RainTomorrow ~ WindGustSpeed + WindSpeed9am + Humidity3pm + Pressure3pm + MinTemp + MaxTemp + Month + Location, data = train_set, family = binomial)
-summary(mod_glm)
+#summary(mod_glm)
 ```
 
 We see that all of the selected predictors are highly significant.
@@ -294,7 +297,7 @@ print(paste('Accuracy',round(mean(pred_glm2 == test_set$RainTomorrow), digits = 
 library(ROCR)
 pr <- prediction(pred_glm, test_set$RainTomorrow)
 prf <- performance(pr, measure = "tpr", x.measure = "fpr")
-plot(prf)
+#plot(prf)
 ```
 
 ```{r, message=FALSE}
@@ -324,15 +327,15 @@ pred_tree <- predict(mod_tree, newdata = test_set)
 
 Correlated variables are less of a problem for random Forests, so we used all predictors instead of selected ones.
 
-```{r, message = FALSE}
+```{r, message = FALSE, cache = TRUE}
 library(randomForest)
 mod_rf <- randomForest(RainTomorrow ~ ., data = train_set, family = binomial)
 ```
 
 ```{r}
 #importance(mod_rf)
-pred_rf <- predict(mod_rf, type = 'response', newdata = test_set)
-confusionMatrix(data = pred_rf, reference = test_set$RainTomorrow, positive = "Yes")
+#pred_rf <- predict(mod_rf, type = 'response', newdata = test_set)
+#confusionMatrix(data = pred_rf, reference = test_set$RainTomorrow, positive = "Yes")
 ```
 
 
