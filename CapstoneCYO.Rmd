@@ -3,8 +3,8 @@ title: "HarvardX Data Science Capstone Project"
 author: "Vincent"
 date: "May 2019"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -127,6 +127,7 @@ rain <- rain %>%
   fill(WindGustSpeed, WindSpeed9am, WindSpeed3pm, Humidity9am, Humidity3pm, Rainfall, Pressure9am, Pressure3pm, MinTemp, MaxTemp, Temp9am, Temp3pm, WindGustDir, WindDir9am, WindDir3pm) %>%
   fill(WindGustSpeed, WindSpeed9am, WindSpeed3pm, Humidity9am, Humidity3pm, Rainfall, Pressure9am, Pressure3pm, MinTemp, MaxTemp, Temp9am, Temp3pm, WindGustDir, WindDir9am, WindDir3pm, .direction = "up")
 rain <- rain %>% ungroup()
+rain$Date <- NULL
 sapply(rain, function(x) sum(is.na(x)))
 ```
 
@@ -277,7 +278,7 @@ confusionMatrix(data = pred_glm2, reference = test_set$RainTomorrow, positive = 
 #print(paste('Accuracy',round(mean(pred_glm2 == test_set$RainTomorrow), digits = 4)))
 ```
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, message=FALSE, warning=FALSE}
 library(ROCR)
 pr <- prediction(pred_glm, test_set$RainTomorrow)
 prf <- performance(pr, measure = "tpr", x.measure = "fpr")
@@ -323,49 +324,76 @@ auc
 
 Correlated variables are less of a problem for random Forests, so we used all predictors instead of selected ones.
 
-```{r, message = FALSE, cache = TRUE}
+```{r random forest, message = FALSE, cache = TRUE}
 library(randomForest)
 mod_rf <- randomForest(RainTomorrow ~ ., data = train_set, family = binomial)
 ```
 
 ```{r}
 #importance(mod_rf)
-#pred_rf <- predict(mod_rf, type = 'response', newdata = test_set)
-#confusionMatrix(data = pred_rf, reference = test_set$RainTomorrow, positive = "Yes")
+pred_rf <- predict(mod_rf, type = 'response', newdata = test_set)
+confusionMatrix(data = pred_rf, reference = test_set$RainTomorrow, positive = "Yes")
 ```
 
 
 
 ## Using the caret package
 
-The caret package provides consistency in order to train models from different packages. Available methods are described here : https://topepo.github.io/caret/train-models-by-tag.html
+The caret package provides consistency in order to train models from different packages. Available methods are described here : <https://topepo.github.io/caret/train-models-by-tag.html>
 
+Caret also allows to easily use cross validation and to optimize hyperparameters for each type of model. Since computing all these models can be computationally intensive, we first enable parallel computing to speed-up model building.
 
-
-```{r}
-#train_glm <- train(RainTomorrow ~ Location, method = "glm", data = train_set)
+### Enable parallel computation
+```{r parallel, message=FALSE}
+library(caret)
+library(parallel)
+library(doParallel)
+cluster <- makeCluster(detectCores() - 1)
+registerDoParallel(cluster)
+fitControl <- trainControl(method = "cv", number = 2, allowParallel = TRUE)
 ```
 
-```{r}
-#predict_glm <- predict(train_glm, test_set, type = "raw")
-#table(predict_glm)
+### Random Forest
+
+```{r caret rf, cache = TRUE}
+Gridrf <-  expand.grid(mtry = c(3, 5))
+before <- proc.time()
+#fit_caret_rf <- train(RainTomorrow ~ WindGustSpeed + WindSpeed9am + Humidity3pm + Pressure3pm + MinTemp + MaxTemp + Month + Location, data = train_set, method = "rf", trControl = fitControl, tuneGrid = Gridrf)
+#predict_caret_rf <- predict(fit_caret_rf, test_set)
+proc.time() - before
+#confusionMatrix.train(fit_caret_rf)
 ```
 
 
+### Bayesian Generalized Linear Model
 
-## Ensemble model
+```{r caret bayesglm, cache = TRUE}
+before <- proc.time()
+fit_caret_bayesglm <- train(RainTomorrow ~ WindGustSpeed + WindSpeed9am + Humidity3pm + Pressure3pm + MinTemp + MaxTemp + Month + Location, data = train_set, method = "bayesglm", trControl = fitControl)
+predict_caret_bayesglm <- predict(fit_caret_bayesglm, test_set)
+proc.time() - before
+confusionMatrix.train(fit_caret_bayesglm)
+```
+
+
+### Stop parallel computation
+```{r stop parallel}
+stopCluster(cluster)
+registerDoSEQ()
+```
+
+### Ensemble model
 
 Using several different models and combining them, with a majority vote in our case, can lead to better performance.
 
+```{r ensemble prediction}
+predictions <- data.frame(pred_rf, predi_tree, pred_rf, predict_caret_rf, predict_caret_bayesglm)
+library(prettyR)
+final_prediction <- apply(predictions, 1, Mode)
+confusionMatrix(data = final_prediction, reference = test_set$RainTomorrow, positive = "Yes")
+```
+
 # Results
 
-# Improvements
-
-better imputation method ?
-
 # Conclusion
-
-```{r}
-
-```
 
