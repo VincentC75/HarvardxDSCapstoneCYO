@@ -175,7 +175,7 @@ corrplot(cor(select(rain, contains("Temp"))), method = "number")
 ```
 
 ```{r Temperature pairs, dev='png', echo = FALSE, out.height='8cm', cache=TRUE}
-pairs(select(rain, contains("Temp")))
+#pairs(select(rain, contains("Temp")))
 ```
 
 This is also true for the two measures of pressure.
@@ -403,6 +403,10 @@ cm <- confusionMatrix(data = final_prediction, reference = test_set$RainTomorrow
 all_results <- rbind(all_results, cbind(data.frame(Model = 'Ensemble Majority Vote Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
 all_results[7,]
 ```
+
+
+
+
 
 # Results
 
