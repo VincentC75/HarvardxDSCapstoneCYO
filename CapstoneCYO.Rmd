@@ -168,21 +168,25 @@ We have to take prevalence into account because in 77.5% of cases, the outcome i
 
 The explanotory variables contains different measures of the same quantity. For example we have 4 measures of temperature: min, max, at 9am and at 6pm. As can be expected, there is a relatively strong correlation between these measures.
 
-```{r Temperature Correlation, message = FALSE, warning= FALSE, dev='png'}
+```{r Temperature Correlation, message = FALSE, warning= FALSE, echo = FALSE, out.height='8cm'}
 library(dplyr)
 library(corrplot)
 corrplot(cor(select(rain, contains("Temp"))), method = "number")
+```
+
+```{r Temperature pairs, dev='png', echo = FALSE, out.height='8cm', cache=TRUE}
 pairs(select(rain, contains("Temp")))
 ```
+
 This is also true for the two measures of pressure.
 
-```{r, dev='png'}
+```{r, dev='png', out.height='8cm', cache=TRUE}
 pairs(select(rain, contains("Pressure")))
 ```
 
 We can outline the highest correlations among the available predictors.
 
-```{r}
+```{r high correlations, out.height='8cm'}
 numeric <- sapply(rain, is.numeric)
 correlations <- cor(rain[,numeric])
 diag(correlations) <- 0
@@ -195,13 +199,10 @@ Later, in models that are sensitive to corelated predictors, we could choose to 
 
 ## Humidity
 
-```{r, message=FALSE, out.width=c('300px', '200px')}
+```{r, message=FALSE, out.width='8cm', out.height='8cm', fig.show='hold'}
 library(ggplot2)
 rain %>% 
   ggplot(aes(x=RainTomorrow, y=Humidity9am, colour = RainTomorrow, fill= RainTomorrow)) + geom_violin()
-```
-
-```{r, out.width=c('300px', '200px')}
 rain %>% 
   ggplot(aes(x=RainTomorrow, y=Humidity3pm, colour = RainTomorrow, fill= RainTomorrow)) + geom_violin()
 ```
@@ -310,7 +311,8 @@ all_results[2,]
 
 ```{r}
 library(rpart)
-mod_tree <- rpart(RainTomorrow ~ WindGustSpeed + WindSpeed9am + Humidity3pm + Pressure3pm + MinTemp + MaxTemp + Month + Location, data = train_set, method = 'class')
+#mod_tree <- rpart(RainTomorrow ~ WindGustSpeed + WindSpeed9am + Humidity3pm + Pressure3pm + MinTemp + MaxTemp + Month + Location, data = train_set, method = 'class')
+mod_tree <- rpart(RainTomorrow ~ ., data = train_set, method = 'class')
 library(rpart.plot)
 prp(mod_tree, type = 2, extra = 4)
 ```
@@ -360,7 +362,7 @@ library(caret)
 fitControl <- trainControl(method = "cv", number = 5, allowParallel = TRUE)
 ```
 
-## Random Forest
+## Caret - Random Forest
 
 ```{r caret rf, cache = TRUE}
 Gridrf <-  expand.grid(mtry = c(5, 7, 9))
@@ -372,7 +374,7 @@ all_results[5,]
 ```
 
 
-## Bayesian Generalized Linear Model
+## Caret - Bayesian Generalized Linear Model
 
 ```{r caret bayesglm, cache = TRUE}
 fit_caret_bayesglm <- train(RainTomorrow ~ WindGustSpeed + WindSpeed9am + Humidity3pm + Pressure3pm + MinTemp + MaxTemp + Month + Location, data = train_set, method = "bayesglm", trControl = fitControl)
@@ -408,6 +410,12 @@ all_results[7,]
 knitr::kable(all_results)
 ```
 
+This table sums up the performance of all the models we have tried. Of course many more models are available that could also give good results. the Random Forest models give the best results. Combining all models with a majority vote also gives good results but does not outperform the best model.
 
 # Conclusion
 
+Predicting wether it will rain tomorrow is a binary classification model. The dataset provides many predictors for our prediction, even if there are many missing values. We chose to impute the missing data with sensible values instead of simply focusing on complete cases, which allowed us to keep almost three times as much observations.
+We also explored the correlation between those predictors to prepare a feature selection for models which are sensitive to correlated predictors.
+We then built a few models, evaluating their performance not only on accuracy but also on sensitivity and specificity and the balance between both with the F1 score. Finally we combined these models with a majority vote.
+Even if the prediction is not perfect, it is much better than just guessing or prediction the most common outcome.
+"All models are wrong, but some are useful" said George Box. The models we have built hopefully belong to the useful ones.

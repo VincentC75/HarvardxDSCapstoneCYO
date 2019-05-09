@@ -137,5 +137,3 @@ all_results <- rbind(all_results, cbind(data.frame(Model = 'Ensemble Majority Vo
 # Results
 all_results
 
-# Conclusion
-
