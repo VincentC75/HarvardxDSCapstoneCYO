@@ -48,12 +48,25 @@ test_index <- createDataPartition(rain$RainTomorrow, times = 1, p = 0.2, list = 
 test_set <- rain[test_index, ]
 train_set <- rain[-test_index, ]
 
+## Baseline fixed "no" model
+pred_naive <- as.factor(rep("No", nrow(test_set)))
+levels(pred_naive) <- levels(rain$RainTomorrow)
+cm <- confusionMatrix(data = pred_naive, reference = test_set$RainTomorrow, positive = "Yes")
+all_results <- cbind(data.frame(Model = 'Fixed No Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy']))))
+
+## Enable parallel computation
+library(parallel)
+library(doParallel)
+cluster <- makeCluster(detectCores() - 1)
+registerDoParallel(cluster)
+
 ## Logistic Regression
 
 mod_glm <- glm(RainTomorrow ~ WindGustSpeed + WindSpeed9am + Humidity3pm + Pressure3pm + MinTemp + MaxTemp + Month + Location, data = train_set, family = binomial)
 pred_glm <- predict(mod_glm, type = 'response', newdata = test_set)
 pred_glm2 <- as.factor(ifelse (pred_glm < 0.5, "No", "Yes"))
-confusionMatrix(data = pred_glm2, reference = test_set$RainTomorrow, positive = "Yes")
+cm <- confusionMatrix(data = pred_glm2, reference = test_set$RainTomorrow, positive = "Yes")
+all_results <- rbind(all_results, cbind(data.frame(Model = 'Logistic Regression Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
 library(ROCR)
 pr <- prediction(pred_glm, test_set$RainTomorrow)
 prf <- performance(pr, measure = "tpr", x.measure = "fpr")
@@ -68,7 +81,8 @@ mod_tree <- rpart(RainTomorrow ~ WindGustSpeed + WindSpeed9am + Humidity3pm + Pr
 library(rpart.plot)
 prp(mod_tree, type = 2, extra = 4)
 pred_tree <- predict(mod_tree, newdata = test_set, type = "class")
-confusionMatrix(pred_tree, test_set$RainTomorrow, positive = "Yes")
+cm <- confusionMatrix(pred_tree, test_set$RainTomorrow, positive = "Yes")
+all_results <- rbind(all_results, cbind(data.frame(Model = 'Simple Tree Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
 pred_tree_prob <- predict(mod_tree, newdata = test_set)
 pr <- prediction(pred_tree_prob[,2], test_set$RainTomorrow)
 prf <- performance(pr, measure = "tpr", x.measure = "fpr")
@@ -82,24 +96,23 @@ auc
 library(randomForest)
 mod_rf <- randomForest(RainTomorrow ~ ., data = train_set, family = binomial)
 pred_rf <- predict(mod_rf, type = 'response', newdata = test_set)
-confusionMatrix(data = pred_rf, reference = test_set$RainTomorrow, positive = "Yes")
+cm <- confusionMatrix(data = pred_rf, reference = test_set$RainTomorrow, positive = "Yes")
+all_results <- rbind(all_results, cbind(data.frame(Model = 'Simple Random Forest Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
 
-## Enable parallel computation
+## Caret cross validation 
 library(caret)
-library(parallel)
-library(doParallel)
-cluster <- makeCluster(detectCores() - 1)
-registerDoParallel(cluster)
-fitControl <- trainControl(method = "cv", number = 2, allowParallel = TRUE)
+fitControl <- trainControl(method = "cv", number = 5, allowParallel = TRUE)
 
 ## Caret Random Forest
 
-Gridrf <-  expand.grid(mtry = c(3, 5))
+Gridrf <-  expand.grid(mtry = c(5, 7, 9))
 before <- proc.time()
-fit_caret_rf <- train(RainTomorrow ~ WindGustSpeed + WindSpeed9am + Humidity3pm + Pressure3pm + MinTemp + MaxTemp + Month + Location, data = train_set, method = "rf", trControl = fitControl, tuneGrid = Gridrf)
+#fit_caret_rf <- train(RainTomorrow ~ WindGustSpeed + WindSpeed9am + Humidity3pm + Pressure3pm + MinTemp + MaxTemp + Month + Location, data = train_set, method = "rf", trControl = fitControl, tuneGrid = Gridrf)
+fit_caret_rf <- train(RainTomorrow ~ ., data = train_set, method = "rf", trControl = fitControl, tuneGrid = Gridrf)
 predict_caret_rf <- predict(fit_caret_rf, test_set)
 proc.time() - before
-confusionMatrix.train(fit_caret_rf)
+cm <- confusionMatrix(data = predict_caret_rf, reference = test_set$RainTomorrow, positive = "Yes")
+all_results <- rbind(all_results, cbind(data.frame(Model = 'Caret rf Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
 
 ## Caret Bayesian Generalized Linear Model
 
@@ -107,19 +120,22 @@ before <- proc.time()
 fit_caret_bayesglm <- train(RainTomorrow ~ WindGustSpeed + WindSpeed9am + Humidity3pm + Pressure3pm + MinTemp + MaxTemp + Month + Location, data = train_set, method = "bayesglm", trControl = fitControl)
 predict_caret_bayesglm <- predict(fit_caret_bayesglm, test_set)
 proc.time() - before
-confusionMatrix.train(fit_caret_bayesglm)
+cm <- confusionMatrix(data = predict_caret_bayesglm, reference = test_set$RainTomorrow, positive = "Yes")
+all_results <- rbind(all_results, cbind(data.frame(Model = 'Bayesian Generalized Linear Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
 
 ## Stop parallel computation
 stopCluster(cluster)
 registerDoSEQ()
 
 ## Ensemble model
-predictions <- data.frame(pred_rf, predi_tree, pred_rf, predict_caret_rf, predict_caret_bayesglm)
+predictions <- data.frame(pred_glm2, pred_tree, pred_rf, predict_caret_rf, predict_caret_bayesglm)
 library(prettyR)
-final_prediction <- apply(predictions, 1, Mode)
-confusionMatrix(data = final_prediction, reference = test_set$RainTomorrow, positive = "Yes")
+final_prediction <- as.factor(apply(predictions, 1, Mode))
+cm <- confusionMatrix(data = final_prediction, reference = test_set$RainTomorrow, positive = "Yes")
+all_results <- rbind(all_results, cbind(data.frame(Model = 'Ensemble Majority Vote Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
 
 # Results
+all_results
 
 # Conclusion
 

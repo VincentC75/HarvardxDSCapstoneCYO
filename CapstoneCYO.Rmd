@@ -3,7 +3,9 @@ title: "HarvardX Data Science Capstone Project"
 author: "Vincent"
 date: "May 2019"
 output:
-  pdf_document: default
+  pdf_document:
+    fig_caption: yes
+    number_sections: yes
   html_document: default
 ---
 
@@ -11,13 +13,14 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-![Weather in Australia](australiaweather.jpg)
-
 # Introduction
 
 
-This project is based on the "Rain in Australia" datasaset available on kaggle: <https://www.kaggle.com/jsphyg/weather-dataset-rattle-package>
-The goal is to predict wether or not it will rain tomorrow by training a binary classification model.
+This project is based on the "Rain in Australia" datasaset available on kaggle: <https://www.kaggle.com/jsphyg/weather-dataset-rattle-package>  
+
+.![Weather in Australia](australiaweather.jpg).
+
+The goal is to predict wether or not it will rain tomorrow by training a binary classification model.  
 
 # Preparing data
 
@@ -27,7 +30,8 @@ The base datafile is downloaded from Kaggle if not already available.
 
 ```{r}
 # Download base dataset
-DataURL <- "https://www.kaggle.com/jsphyg/weather-dataset-rattle-package/downloads/weather-dataset-rattle-package.zip/2"
+DataURL <- "https://www.kaggle.com/jsphyg/weather-dataset-rattle-package/downloads/
+weather-dataset-rattle-package.zip/2"
 DataFile <- "weather-dataset-rattle-package.zip"
 if (!file.exists(DataFile)) {
   download.file(DataURL, destfile = DataFile)
@@ -46,10 +50,10 @@ str(rain)
 ### Available columns
 
 ```{r, include = FALSE}
-description <- c('The date of observation', 'The common name of the location of the weather station', 'The minimum temperature in degrees celsius', 'The maximum temperature in degrees celsius', 'The amount of rainfall recorded for the day in mm', 'The so-called Class A pan evaporation (mm) in the 24 hours to 9am', 'The number of hours of bright sunshine in the day', 'The direction of the strongest wind gust in the 24 hours to midnight', 'The speed (km/h) of the strongest wind gust in the 24 hours to midnight', 'Direction of the wind at 9am', 'Direction of the wind at 3pm', 'Wind speed (km/hr) averaged over 10 minutes prior to 9am', 'Wind speed (km/hr) averaged over 10 minutes prior to 3pm', 'Humidity (percent) at 9am', 'Humidity (percent) at 3pm', 'Atmospheric pressure (hpa) reduced to mean sea level at 9am', 'Atmospheric pressure (hpa) reduced to mean sea level at 3pm','Fraction of sky obscured by cloud at 9am. This is measured in "oktas", which are a unit of eigths. It records how many eigths of the sky are obscured by cloud. A 0 measure indicates completely clear sky whilst an 8 indicates that it is completely overcast.', 'Fraction of sky obscured by cloud (in "oktas": eighths) at 3pm. See Cloud9am for a description of the values', 'Temperature (degrees C) at 9am', 'Temperature (degrees C) at 3pm', 'Boolean: 1 if precipitation (mm) in the 24 hours to 9am exceeds 1mm, otherwise 0', 'The amount of next day rain in mm. Used to create response variable RainTomorrow. A kind of measure of the "risk".', 'The target variable. Did it rain tomorrow?')
+description <- c('The date of observation', 'The common name of the location of the weather station', 'The minimum temperature in degrees celsius', 'The maximum temperature in degrees celsius', 'The amount of rainfall recorded for the day in mm', 'The so-called Class A pan evaporation (mm) in the 24 hours to 9am', 'The number of hours of bright sunshine in the day', 'The direction of the strongest wind gust in the 24 hours to midnight', 'The speed (km/h) of the strongest wind gust in the 24 hours to midnight', 'Direction of the wind at 9am', 'Direction of the wind at 3pm', 'Wind speed (km/hr) averaged over 10 minutes prior to 9am', 'Wind speed (km/hr) averaged over 10 minutes prior to 3pm', 'Humidity (percent) at 9am', 'Humidity (percent) at 3pm', 'Atmospheric pressure (hpa) reduced to mean sea level at 9am', 'Atmospheric pressure (hpa) reduced to mean sea level at 3pm','Fraction of sky obscured by cloud at 9am. This is measured in "oktas".', 'Fraction of sky obscured by cloud (in "oktas": eighths) at 3pm.', 'Temperature (degrees C) at 9am', 'Temperature (degrees C) at 3pm', 'Boolean: 1 if precipitation (mm) in the 24 hours to 9am exceeds 1mm, otherwise 0', 'The amount of next day rain in mm. Used to create response variable RainTomorrow.', 'The target variable. Did it rain tomorrow?')
 ```
 
-```{r, results='asis'}
+```{r, results='asis', echo=FALSE}
 knitr::kable(data.frame(column = names(rain), description))
 ```
 
@@ -124,8 +128,10 @@ library(tidyr)
 rain <- rain %>%
   arrange(Date) %>%
   group_by(Location) %>%
-  fill(WindGustSpeed, WindSpeed9am, WindSpeed3pm, Humidity9am, Humidity3pm, Rainfall, Pressure9am, Pressure3pm, MinTemp, MaxTemp, Temp9am, Temp3pm, WindGustDir, WindDir9am, WindDir3pm) %>%
-  fill(WindGustSpeed, WindSpeed9am, WindSpeed3pm, Humidity9am, Humidity3pm, Rainfall, Pressure9am, Pressure3pm, MinTemp, MaxTemp, Temp9am, Temp3pm, WindGustDir, WindDir9am, WindDir3pm, .direction = "up")
+  fill(WindGustSpeed, WindSpeed9am, WindSpeed3pm, Humidity9am, Humidity3pm, Rainfall, Pressure9am,
+       Pressure3pm, MinTemp, MaxTemp, Temp9am, Temp3pm, WindGustDir, WindDir9am, WindDir3pm) %>%
+  fill(WindGustSpeed, WindSpeed9am, WindSpeed3pm, Humidity9am, Humidity3pm, Rainfall, Pressure9am,
+       Pressure3pm, MinTemp, MaxTemp, Temp9am, Temp3pm, WindGustDir, WindDir9am, WindDir3pm, .direction = "up")
 rain <- rain %>% ungroup()
 rain$Date <- NULL
 sapply(rain, function(x) sum(is.na(x)))
@@ -139,7 +145,8 @@ For Pressure9am and Pressure3pm we have no value in the same observation thta wo
 
 ```{r}
 rain$WindGustDir[is.na(rain$WindGustDir)] <- rain$WindDir9am[is.na(rain$WindGustDir)] 
-rain$WindGustSpeed[is.na(rain$WindGustSpeed)] <- max(rain$WindSpeed9am[is.na(rain$WindGustSpeed)], rain$WindSpeed3pm[is.na(rain$WindGustSpeed)]) 
+rain$WindGustSpeed[is.na(rain$WindGustSpeed)] <- max(rain$WindSpeed9am[is.na(rain$WindGustSpeed)],
+                                                     rain$WindSpeed3pm[is.na(rain$WindGustSpeed)]) 
 rain$Pressure9am[is.na(rain$Pressure9am)] <- mean(rain$Pressure9am[!is.na(rain$Pressure9am)]) 
 rain$Pressure3pm[is.na(rain$Pressure3pm)] <- mean(rain$Pressure3pm[!is.na(rain$Pressure3pm)]) 
 ```
@@ -161,15 +168,15 @@ We have to take prevalence into account because in 77.5% of cases, the outcome i
 
 The explanotory variables contains different measures of the same quantity. For example we have 4 measures of temperature: min, max, at 9am and at 6pm. As can be expected, there is a relatively strong correlation between these measures.
 
-```{r Temperature Correlation, message = FALSE, warning= FALSE}
+```{r Temperature Correlation, message = FALSE, warning= FALSE, dev='png'}
 library(dplyr)
 library(corrplot)
 corrplot(cor(select(rain, contains("Temp"))), method = "number")
-#pairs(select(rain, contains("Temp")))
+pairs(select(rain, contains("Temp")))
 ```
 This is also true for the two measures of pressure.
 
-```{r}
+```{r, dev='png'}
 pairs(select(rain, contains("Pressure")))
 ```
 
@@ -188,13 +195,13 @@ Later, in models that are sensitive to corelated predictors, we could choose to 
 
 ## Humidity
 
-```{r, message=FALSE}
+```{r, message=FALSE, out.width=c('300px', '200px')}
 library(ggplot2)
 rain %>% 
   ggplot(aes(x=RainTomorrow, y=Humidity9am, colour = RainTomorrow, fill= RainTomorrow)) + geom_violin()
 ```
 
-```{r, message=FALSE}
+```{r, out.width=c('300px', '200px')}
 rain %>% 
   ggplot(aes(x=RainTomorrow, y=Humidity3pm, colour = RainTomorrow, fill= RainTomorrow)) + geom_violin()
 ```
@@ -245,19 +252,25 @@ table(predicted = pred_naive, actual = test_set$RainTomorrow)
 ```
 
 ```{r}
-confusionMatrix(data = pred_naive, reference = test_set$RainTomorrow)
+cm <- confusionMatrix(data = pred_naive, reference = test_set$RainTomorrow, positive = "Yes")
+all_results <- cbind(data.frame(Model = 'Fixed No Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy']))))
+all_results
 ```
 
-Of course our naive approach leads to a perfect sensitivity but specificity is 0. Balanced accuracy is only 0.5. F1 score is 0.87
+Of course our naive approach leads to a perfect specificity but without any sensitivity.
 
-```{r}
-F_meas(data = pred_naive, reference = test_set$RainTomorrow)
-#confusionMatrix(data = pred_naive, reference = test_set$RainTomorrow)$byClass['F1']
+
+Since computing all these models can be computationally intensive, we first enable parallel computing to speed-up model building.
+
+## Enable parallel computation
+```{r parallel on, message=FALSE}
+library(parallel)
+library(doParallel)
+cluster <- makeCluster(detectCores() - 1)
+registerDoParallel(cluster)
 ```
 
 ## Logistic Regression
-
-### Feature selection
 
 To build a logistic regression model, we use knowledge we gained during explanatory analysis and eliminate highly correlated predictors.
 
@@ -270,19 +283,13 @@ All of the selected predictors are highly significant.
 
 ```{r}
 pred_glm <- predict(mod_glm, type = 'response', newdata = test_set)
-pred_glm2 <- as.factor(ifelse (pred_glm < 0.5, "No", "Yes"))
-pred_glm3 <- as.factor(ifelse (pred_glm < 0.3, "No", "Yes"))
-confusionMatrix(data = pred_glm2, reference = test_set$RainTomorrow, positive = "Yes")
-```
-```{r}
-#print(paste('Accuracy',round(mean(pred_glm2 == test_set$RainTomorrow), digits = 4)))
 ```
 
-```{r, message=FALSE, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE}
 library(ROCR)
 pr <- prediction(pred_glm, test_set$RainTomorrow)
 prf <- performance(pr, measure = "tpr", x.measure = "fpr")
-#plot(prf)
+plot(prf)
 ```
 
 ```{r, message=FALSE}
@@ -291,6 +298,13 @@ auc <- auc@y.values[[1]]
 auc
 ```
 
+```{r}
+pred_glm <- predict(mod_glm, type = 'response', newdata = test_set)
+pred_glm2 <- as.factor(ifelse (pred_glm < 0.3, "No", "Yes"))
+cm <- confusionMatrix(data = pred_glm2, reference = test_set$RainTomorrow, positive = "Yes")
+all_results <- rbind(all_results, cbind(data.frame(Model = 'Logistic Regression Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
+all_results[2,]
+```
 
 ## Tree
 
@@ -303,7 +317,9 @@ prp(mod_tree, type = 2, extra = 4)
 
 ```{r}
 pred_tree <- predict(mod_tree, newdata = test_set, type = "class")
-confusionMatrix(pred_tree, test_set$RainTomorrow, positive = "Yes")
+cm <- confusionMatrix(pred_tree, test_set$RainTomorrow, positive = "Yes")
+all_results <- rbind(all_results, cbind(data.frame(Model = 'Simple Tree Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
+all_results[3,]
 ```
 
 ```{r, message=FALSE}
@@ -327,73 +343,71 @@ Correlated variables are less of a problem for random Forests, so we used all pr
 ```{r random forest, message = FALSE, cache = TRUE}
 library(randomForest)
 mod_rf <- randomForest(RainTomorrow ~ ., data = train_set, family = binomial)
-```
-
-```{r}
-#importance(mod_rf)
 pred_rf <- predict(mod_rf, type = 'response', newdata = test_set)
-confusionMatrix(data = pred_rf, reference = test_set$RainTomorrow, positive = "Yes")
+cm <- confusionMatrix(data = pred_rf, reference = test_set$RainTomorrow, positive = "Yes")
+all_results <- rbind(all_results, cbind(data.frame(Model = 'Simple Random Forest Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
+all_results[4,]
 ```
-
-
 
 ## Using the caret package
 
 The caret package provides consistency in order to train models from different packages. Available methods are described here : <https://topepo.github.io/caret/train-models-by-tag.html>
 
-Caret also allows to easily use cross validation and to optimize hyperparameters for each type of model. Since computing all these models can be computationally intensive, we first enable parallel computing to speed-up model building.
+Caret also allows to easily use cross validation and to optimize hyperparameters for each type of model.
 
-### Enable parallel computation
 ```{r parallel, message=FALSE}
 library(caret)
-library(parallel)
-library(doParallel)
-cluster <- makeCluster(detectCores() - 1)
-registerDoParallel(cluster)
-fitControl <- trainControl(method = "cv", number = 2, allowParallel = TRUE)
+fitControl <- trainControl(method = "cv", number = 5, allowParallel = TRUE)
 ```
 
-### Random Forest
+## Random Forest
 
 ```{r caret rf, cache = TRUE}
-Gridrf <-  expand.grid(mtry = c(3, 5))
-before <- proc.time()
-#fit_caret_rf <- train(RainTomorrow ~ WindGustSpeed + WindSpeed9am + Humidity3pm + Pressure3pm + MinTemp + MaxTemp + Month + Location, data = train_set, method = "rf", trControl = fitControl, tuneGrid = Gridrf)
-#predict_caret_rf <- predict(fit_caret_rf, test_set)
-proc.time() - before
-#confusionMatrix.train(fit_caret_rf)
+Gridrf <-  expand.grid(mtry = c(5, 7, 9))
+fit_caret_rf <- train(RainTomorrow ~ ., data = train_set, method = "rf", trControl = fitControl, tuneGrid = Gridrf)
+predict_caret_rf <- predict(fit_caret_rf, test_set)
+cm <- confusionMatrix(data = predict_caret_rf, reference = test_set$RainTomorrow, positive = "Yes")
+all_results <- rbind(all_results, cbind(data.frame(Model = 'Caret rf Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
+all_results[5,]
 ```
 
 
-### Bayesian Generalized Linear Model
+## Bayesian Generalized Linear Model
 
 ```{r caret bayesglm, cache = TRUE}
-before <- proc.time()
 fit_caret_bayesglm <- train(RainTomorrow ~ WindGustSpeed + WindSpeed9am + Humidity3pm + Pressure3pm + MinTemp + MaxTemp + Month + Location, data = train_set, method = "bayesglm", trControl = fitControl)
 predict_caret_bayesglm <- predict(fit_caret_bayesglm, test_set)
-proc.time() - before
-confusionMatrix.train(fit_caret_bayesglm)
+cm <- confusionMatrix(data = predict_caret_bayesglm, reference = test_set$RainTomorrow, positive = "Yes")
+all_results <- rbind(all_results, cbind(data.frame(Model = 'Bayesian Generalized Linear Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
+all_results[6,]
 ```
 
 
-### Stop parallel computation
-```{r stop parallel}
+## Stop parallel computation
+```{r parallel off}
 stopCluster(cluster)
 registerDoSEQ()
 ```
 
-### Ensemble model
+## Ensemble model
 
 Using several different models and combining them, with a majority vote in our case, can lead to better performance.
 
 ```{r ensemble prediction}
-predictions <- data.frame(pred_rf, predi_tree, pred_rf, predict_caret_rf, predict_caret_bayesglm)
+predictions <- data.frame(pred_glm2, pred_tree, pred_rf, predict_caret_rf, predict_caret_bayesglm)
 library(prettyR)
-final_prediction <- apply(predictions, 1, Mode)
-confusionMatrix(data = final_prediction, reference = test_set$RainTomorrow, positive = "Yes")
+final_prediction <- as.factor(apply(predictions, 1, Mode))
+cm <- confusionMatrix(data = final_prediction, reference = test_set$RainTomorrow, positive = "Yes")
+all_results <- rbind(all_results, cbind(data.frame(Model = 'Ensemble Majority Vote Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
+all_results[7,]
 ```
 
 # Results
+
+```{r}
+knitr::kable(all_results)
+```
+
 
 # Conclusion
 
