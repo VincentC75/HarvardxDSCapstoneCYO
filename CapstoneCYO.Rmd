@@ -131,7 +131,8 @@ rain <- rain %>%
   fill(WindGustSpeed, WindSpeed9am, WindSpeed3pm, Humidity9am, Humidity3pm, Rainfall, Pressure9am,
        Pressure3pm, MinTemp, MaxTemp, Temp9am, Temp3pm, WindGustDir, WindDir9am, WindDir3pm) %>%
   fill(WindGustSpeed, WindSpeed9am, WindSpeed3pm, Humidity9am, Humidity3pm, Rainfall, Pressure9am,
-       Pressure3pm, MinTemp, MaxTemp, Temp9am, Temp3pm, WindGustDir, WindDir9am, WindDir3pm, .direction = "up")
+       Pressure3pm, MinTemp, MaxTemp, Temp9am, Temp3pm, WindGustDir, WindDir9am, WindDir3pm,
+       .direction = "up")
 rain <- rain %>% ungroup()
 rain$Date <- NULL
 sapply(rain, function(x) sum(is.na(x)))
@@ -254,7 +255,8 @@ table(predicted = pred_naive, actual = test_set$RainTomorrow)
 
 ```{r}
 cm <- confusionMatrix(data = pred_naive, reference = test_set$RainTomorrow, positive = "Yes")
-all_results <- cbind(data.frame(Model = 'Fixed No Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy']))))
+all_results <- cbind(data.frame(Model = 'Fixed No Model'),
+                     as.data.frame(t(c(cm$byClass[c(1,2,7)],cm$overall['Accuracy']))))
 all_results
 ```
 
@@ -276,7 +278,8 @@ registerDoParallel(cluster)
 To build a logistic regression model, we use knowledge we gained during explanatory analysis and eliminate highly correlated predictors.
 
 ```{r}
-mod_glm <- glm(RainTomorrow ~ WindGustSpeed + WindSpeed9am + Humidity3pm + Pressure3pm + MinTemp + MaxTemp + Month + Location, data = train_set, family = binomial)
+mod_glm <- glm(RainTomorrow ~ WindGustSpeed + WindSpeed9am + Humidity3pm + Pressure3pm +
+                 MinTemp + MaxTemp + Month + Location, data = train_set, family = binomial)
 #summary(mod_glm)
 ```
 
@@ -303,7 +306,8 @@ auc
 pred_glm <- predict(mod_glm, type = 'response', newdata = test_set)
 pred_glm2 <- as.factor(ifelse (pred_glm < 0.3, "No", "Yes"))
 cm <- confusionMatrix(data = pred_glm2, reference = test_set$RainTomorrow, positive = "Yes")
-all_results <- rbind(all_results, cbind(data.frame(Model = 'Logistic Regression Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
+all_results <- rbind(all_results, cbind(data.frame(Model = 'Logistic Regression Model'),
+                     as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
 all_results[2,]
 ```
 
@@ -311,7 +315,6 @@ all_results[2,]
 
 ```{r}
 library(rpart)
-#mod_tree <- rpart(RainTomorrow ~ WindGustSpeed + WindSpeed9am + Humidity3pm + Pressure3pm + MinTemp + MaxTemp + Month + Location, data = train_set, method = 'class')
 mod_tree <- rpart(RainTomorrow ~ ., data = train_set, method = 'class')
 library(rpart.plot)
 prp(mod_tree, type = 2, extra = 4)
@@ -347,7 +350,8 @@ library(randomForest)
 mod_rf <- randomForest(RainTomorrow ~ ., data = train_set, family = binomial)
 pred_rf <- predict(mod_rf, type = 'response', newdata = test_set)
 cm <- confusionMatrix(data = pred_rf, reference = test_set$RainTomorrow, positive = "Yes")
-all_results <- rbind(all_results, cbind(data.frame(Model = 'Simple Random Forest Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
+all_results <- rbind(all_results, cbind(data.frame(Model = 'Simple Random Forest Model'),
+                     as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
 all_results[4,]
 ```
 
@@ -366,10 +370,14 @@ fitControl <- trainControl(method = "cv", number = 5, allowParallel = TRUE)
 
 ```{r caret rf, cache = TRUE}
 Gridrf <-  expand.grid(mtry = c(5, 7, 9))
-fit_caret_rf <- train(RainTomorrow ~ ., data = train_set, method = "rf", trControl = fitControl, tuneGrid = Gridrf)
+fit_caret_rf <- train(RainTomorrow ~ ., data = train_set,
+                      method = "rf",
+                      trControl = fitControl,
+                      tuneGrid = Gridrf)
 predict_caret_rf <- predict(fit_caret_rf, test_set)
 cm <- confusionMatrix(data = predict_caret_rf, reference = test_set$RainTomorrow, positive = "Yes")
-all_results <- rbind(all_results, cbind(data.frame(Model = 'Caret rf Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
+all_results <- rbind(all_results, cbind(data.frame(Model = 'Caret rf Model'),
+                     as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
 all_results[5,]
 ```
 
@@ -377,12 +385,40 @@ all_results[5,]
 ## Caret - Bayesian Generalized Linear Model
 
 ```{r caret bayesglm, cache = TRUE}
-fit_caret_bayesglm <- train(RainTomorrow ~ WindGustSpeed + WindSpeed9am + Humidity3pm + Pressure3pm + MinTemp + MaxTemp + Month + Location, data = train_set, method = "bayesglm", trControl = fitControl)
+fit_caret_bayesglm <- train(RainTomorrow ~ WindGustSpeed + WindSpeed9am + Humidity3pm + Pressure3pm +
+                              MinTemp + MaxTemp + Month + Location, data = train_set,
+                            method = "bayesglm",
+                            trControl = fitControl)
 predict_caret_bayesglm <- predict(fit_caret_bayesglm, test_set)
 cm <- confusionMatrix(data = predict_caret_bayesglm, reference = test_set$RainTomorrow, positive = "Yes")
-all_results <- rbind(all_results, cbind(data.frame(Model = 'Bayesian Generalized Linear Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
+all_results <- rbind(all_results, cbind(data.frame(Model = 'Bayesian Generalized Linear Model'),
+                     as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
 all_results[6,]
 ```
+
+## Caret XGBoost Model
+
+```{r caret xgboost, cache = TRUE}
+Gridxgboost <-  expand.grid(eta = 0.1, 
+                            colsample_bytree=c(0.5,0.7),
+                            max_depth=c(3,6),
+                            nrounds=100,
+                            gamma=1,
+                            min_child_weight=2,
+                            subsample=1)
+before <- proc.time()
+fit_xgboost <- train(RainTomorrow ~ WindGustSpeed + WindSpeed9am + Humidity3pm + Pressure3pm + MinTemp + MaxTemp + Month + Location,
+                     data = train_set,
+                     method = "xgbTree",
+                     trControl = fitControl,
+                     tuneGrid = Gridxgboost)
+predict_xgboost <- predict(fit_xgboost, test_set, type = "raw")
+proc.time() - before
+cm <- confusionMatrix(data = predict_xgboost, reference = test_set$RainTomorrow, positive = "Yes")
+all_results <- rbind(all_results, cbind(data.frame(Model = 'XGBoost Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
+all_results[7,]
+```
+
 
 
 ## Stop parallel computation
@@ -396,12 +432,13 @@ registerDoSEQ()
 Using several different models and combining them, with a majority vote in our case, can lead to better performance.
 
 ```{r ensemble prediction}
-predictions <- data.frame(pred_glm2, pred_tree, pred_rf, predict_caret_rf, predict_caret_bayesglm)
+predictions <- data.frame(pred_glm2, pred_rf, predict_caret_rf, predict_caret_bayesglm, predict_xgboost)
 library(prettyR)
 final_prediction <- as.factor(apply(predictions, 1, Mode))
 cm <- confusionMatrix(data = final_prediction, reference = test_set$RainTomorrow, positive = "Yes")
-all_results <- rbind(all_results, cbind(data.frame(Model = 'Ensemble Majority Vote Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
-all_results[7,]
+all_results <- rbind(all_results, cbind(data.frame(Model = 'Ensemble Majority Vote Model'),
+                     as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
+all_results[8,]
 ```
 
 

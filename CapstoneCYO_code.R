@@ -123,12 +123,32 @@ proc.time() - before
 cm <- confusionMatrix(data = predict_caret_bayesglm, reference = test_set$RainTomorrow, positive = "Yes")
 all_results <- rbind(all_results, cbind(data.frame(Model = 'Bayesian Generalized Linear Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
 
+## Caret XGBoost
+
+Gridxgboost <-  expand.grid(eta = 0.1, 
+                            colsample_bytree=c(0.5,0.7),
+                            max_depth=c(3,6),
+                            nrounds=100,
+                            gamma=1,
+                            min_child_weight=2,
+                            subsample=1)
+before <- proc.time()
+fit_xgboost <- train(RainTomorrow ~ WindGustSpeed + WindSpeed9am + Humidity3pm + Pressure3pm + MinTemp + MaxTemp + Month + Location,
+                     data = train_set,
+                     method = "xgbTree",
+                     trControl = fitControl,
+                     tuneGrid = Gridxgboost)
+predict_xgboost <- predict(fit_xgboost, test_set, type = "raw")
+proc.time() - before
+cm <- confusionMatrix(data = predict_xgboost, reference = test_set$RainTomorrow, positive = "Yes")
+all_results <- rbind(all_results, cbind(data.frame(Model = 'XGBoost Model'), as.data.frame(t(c(cm$byClass[c(1,2,7)], cm$overall['Accuracy'])))))
+
 ## Stop parallel computation
 stopCluster(cluster)
 registerDoSEQ()
 
 ## Ensemble model
-predictions <- data.frame(pred_glm2, pred_tree, pred_rf, predict_caret_rf, predict_caret_bayesglm)
+predictions <- data.frame(pred_glm2, pred_rf, predict_caret_rf, predict_caret_bayesglm, predict_xgboost)
 library(prettyR)
 final_prediction <- as.factor(apply(predictions, 1, Mode))
 cm <- confusionMatrix(data = final_prediction, reference = test_set$RainTomorrow, positive = "Yes")
